@@ -1,4 +1,6 @@
-use rsa::{RsaPrivateKey, RsaPublicKey, BigUint, PublicKeyParts, pkcs1::EncodeRsaPrivateKey};
+use rsa::{pkcs1::EncodeRsaPrivateKey, BigUint, PublicKeyParts, RsaPrivateKey, RsaPublicKey};
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Instant;
 
 fn push_four(value: u32, vec: &mut Vec<u8>) {
@@ -33,7 +35,7 @@ fn format_key(n: &BigUint, e: &BigUint) -> String {
     return base64::encode(&key_bytes);
 }
 
-fn find_key() -> String {
+fn find_key_thread(solution: Arc<Mutex<Option<String>>>) {
     let mut rng = rand::thread_rng();
 
     let start = Instant::now();
@@ -47,18 +49,40 @@ fn find_key() -> String {
 
         attempts += 1;
 
-        if attempts % 10 == 0 {
-            println!("Searching... ({} attempts, {:?} seconds)", attempts, start.elapsed());
+        if pub_string.to_lowercase().contains("brooke") {
+            println!(
+                "Found key after {} attempts ({:?} seconds)",
+                attempts,
+                start.elapsed()
+            );
+
+            *solution.lock().unwrap() =
+                Some(base64::encode(priv_key.to_pkcs1_der().unwrap().as_bytes()));
+            return;
         }
 
-        if pub_string.to_lowercase().contains("brooke") {
-            println!("Found key after {} attempts ({:?} seconds)", attempts, start.elapsed());
-
-            return base64::encode(priv_key.to_pkcs1_der().unwrap().as_bytes());
+        {
+            if let Some(_) = &*solution.lock().unwrap() {
+                return;
+            }
         }
     }
 }
 
 fn main() {
-    println!("{}", find_key());
+    let mut handles = Vec::new();
+    let solution = Arc::new(Mutex::new(None));
+
+    for _ in 0..12 {
+        let clone = solution.clone();
+        handles.push(thread::spawn(|| {
+            find_key_thread(clone);
+        }))
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    println!("{}", solution.lock().unwrap().as_ref().unwrap());
 }
