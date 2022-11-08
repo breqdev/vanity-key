@@ -35,7 +35,97 @@ fn format_key(n: &BigUint, e: &BigUint) -> String {
     return base64::encode(&key_bytes);
 }
 
-fn find_key_thread(solution: Arc<Mutex<Option<String>>>) {
+fn numberize(start: &str) -> Vec<String> {
+    let mut strings: Vec<String> = Vec::new();
+
+    match start.chars().nth(0) {
+        Some('o') => {
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("o{}", s))
+                    .collect(),
+            );
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("0{}", s))
+                    .collect(),
+            );
+        }
+        Some('e') => {
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("e{}", s))
+                    .collect(),
+            );
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("3{}", s))
+                    .collect(),
+            );
+        }
+        Some('a') => {
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("a{}", s))
+                    .collect(),
+            );
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("4{}", s))
+                    .collect(),
+            );
+        }
+        Some('s') => {
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("s{}", s))
+                    .collect(),
+            );
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("5{}", s))
+                    .collect(),
+            );
+        }
+        Some('g') => {
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("g{}", s))
+                    .collect(),
+            );
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("6{}", s))
+                    .collect(),
+            );
+        }
+        Some(letter) => {
+            strings.append(
+                &mut numberize(&start[1..])
+                    .iter()
+                    .map(|s| format!("{}{}", letter, s))
+                    .collect(),
+            );
+        }
+        None => {
+            strings.push(String::from(""));
+        }
+    }
+
+    strings
+}
+
+fn find_key_thread(solution: Arc<Mutex<Option<String>>>, accepted: Vec<String>) {
     let mut rng = rand::thread_rng();
 
     let start = Instant::now();
@@ -49,16 +139,19 @@ fn find_key_thread(solution: Arc<Mutex<Option<String>>>) {
 
         attempts += 1;
 
-        if pub_string.to_lowercase().contains("brooke") {
-            println!(
-                "Found key after {} attempts ({:?} seconds)",
-                attempts,
-                start.elapsed()
-            );
+        for accepted in accepted.iter() {
+            if pub_string.contains(accepted) {
+                println!(
+                    "Found key containing {} after {} attempts ({:?} seconds)",
+                    accepted,
+                    attempts,
+                    start.elapsed()
+                );
 
-            *solution.lock().unwrap() =
-                Some(base64::encode(priv_key.to_pkcs1_der().unwrap().as_bytes()));
-            return;
+                *solution.lock().unwrap() =
+                    Some(base64::encode(priv_key.to_pkcs1_der().unwrap().as_bytes()));
+                return;
+            }
         }
 
         {
@@ -70,13 +163,18 @@ fn find_key_thread(solution: Arc<Mutex<Option<String>>>) {
 }
 
 fn main() {
+    let accepted = vec!["breq".to_string()];
+
+    println!("{:?} accepted", accepted);
+
     let mut handles = Vec::new();
     let solution = Arc::new(Mutex::new(None));
 
     for _ in 0..12 {
         let clone = solution.clone();
+        let accepted = accepted.clone();
         handles.push(thread::spawn(|| {
-            find_key_thread(clone);
+            find_key_thread(clone, accepted);
         }))
     }
 
